@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ajedrez Online</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">♞ Ajedrez Online</div>
+    <div class="status">
+      <span class="dot off" id="dot"></span>
+      <span id="connText">Desconectado</span>
+      <span class="sep">•</span>
+      <span id="matchText">-</span>
+      <span class="sep">•</span>
+      <span id="roleText">Rol: -</span>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="left">
+      <div class="panel">
+        <div class="actions">
+          <button id="joinBtn" class="btn primary">Entrar a jugar</button>
+          <button id="resetBtn" class="btn secondary">Reiniciar</button>
+        </div>
+
+        <div class="row">
+          <div class="label">Blancas:</div><div class="value" id="whiteName">-</div>
+          <div class="label">Negras:</div><div class="value" id="blackName">-</div>
+          <div class="label">Turno:</div><div class="value" id="turnName">-</div>
+        </div>
+
+        <div class="msg" id="msg">Presiona “Entrar a jugar” para comenzar.</div>
+      </div>
+
+      <div id="board" class="board" aria-label="Tablero de ajedrez"></div>
+      <div class="hint">Click en una pieza (tu color) → click en la casilla destino.</div>
+    </div>
+
+    <div class="right">
+      <div class="chatbox">
+        <div class="chatHeader">Chat</div>
+        <div class="chatLog" id="chatLog"></div>
+        <div class="chatInput">
+          <input id="chatText" type="text" placeholder="Escribe y presiona Enter..." />
+          <button id="sendBtn">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Nombre -->
+  <div id="nameModal" class="modal hidden" aria-hidden="true">
+    <div class="modalCard" role="dialog" aria-modal="true">
+      <div class="modalTitle">Tu nombre</div>
+      <div class="modalText">Escribe tu nombre para entrar a jugar.</div>
+      <input id="nameInput" type="text" maxlength="18" placeholder="Ej: Oliver" />
+      <div class="modalActions">
+        <button id="nameCancel" class="btn ghost">Cancelar</button>
+        <button id="nameOk" class="btn primary">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
