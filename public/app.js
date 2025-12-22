@@ -16,23 +16,38 @@ const chatLog = document.getElementById("chatLog");
 const chatText = document.getElementById("chatText");
 const sendBtn = document.getElementById("sendBtn");
 
-// ✅ Botones como 3 en línea
 const joinBtn = document.getElementById("joinBtn");
 const resetBtn = document.getElementById("resetBtn");
 
-// ✅ Modal nombre
+// Tablas
+const offerDrawBtn = document.getElementById("offerDrawBtn");
+const claimDrawBtn = document.getElementById("claimDrawBtn");
+const drawBar = document.getElementById("drawBar");
+const drawBarText = document.getElementById("drawBarText");
+const drawAcceptBtn = document.getElementById("drawAcceptBtn");
+const drawDeclineBtn = document.getElementById("drawDeclineBtn");
+
+// Modal nombre
 const nameModal = document.getElementById("nameModal");
 const nameInput = document.getElementById("nameInput");
 const nameOk = document.getElementById("nameOk");
 const nameCancel = document.getElementById("nameCancel");
 
+// Modal promoción
+const promoModal = document.getElementById("promoModal");
+const promoBtns = document.querySelectorAll(".promoBtn");
+const promoCancel = document.getElementById("promoCancel");
+
 let myName = "";
-let joined = false;      // si ya presionó "Entrar a jugar" y está en matchmaking
-let myColor = null;      // 'w' | 'b'
+let joined = false;
+let myColor = null; // 'w'|'b'
 let currentState = null;
 
 let selected = null;
 let lastBad = null;
+
+// para promoción
+let pendingPromotionMove = null; // {from,to}
 
 const PIECES = {
   w: { k:"♔", q:"♕", r:"♖", b:"♗", n:"♘", p:"♙" },
@@ -46,13 +61,16 @@ function setConn(online) {
 }
 
 function setJoinUI(state) {
-  // state: 'idle' | 'searching' | 'playing'
+  // 'idle' | 'searching' | 'playing'
   if (state === "idle") {
     joinBtn.disabled = false;
     joinBtn.textContent = "Entrar a jugar";
     matchText.textContent = "-";
     roleText.textContent = "Rol: -";
     msg.textContent = "Presiona “Entrar a jugar” para comenzar.";
+    offerDrawBtn.disabled = true;
+    claimDrawBtn.disabled = true;
+    hideDrawBar();
   }
   if (state === "searching") {
     joinBtn.disabled = true;
@@ -60,6 +78,9 @@ function setJoinUI(state) {
     matchText.textContent = "Buscando rival…";
     roleText.textContent = "Rol: -";
     msg.textContent = "Buscando rival…";
+    offerDrawBtn.disabled = true;
+    claimDrawBtn.disabled = true;
+    hideDrawBar();
   }
   if (state === "playing") {
     joinBtn.disabled = true;
@@ -67,7 +88,6 @@ function setJoinUI(state) {
   }
 }
 
-/* nombre único por pestaña (si hace falta default) */
 function getTabId() {
   let id = sessionStorage.getItem("ajedrez_tabId");
   if (!id) {
@@ -80,23 +100,37 @@ function defaultName() {
   return `Jugador-${getTabId()}`;
 }
 function sanitizeName(name) {
-  const clean = String(name || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .slice(0, 18);
+  const clean = String(name || "").trim().replace(/\s+/g, " ").slice(0, 18);
   return clean || defaultName();
 }
 
 function openNameModal() {
   nameModal.classList.remove("hidden");
   nameModal.setAttribute("aria-hidden", "false");
-  const last = sessionStorage.getItem("ajedrez_name") || "";
-  nameInput.value = last;
+  nameInput.value = sessionStorage.getItem("ajedrez_name") || "";
   setTimeout(() => nameInput.focus(), 0);
 }
 function closeNameModal() {
   nameModal.classList.add("hidden");
   nameModal.setAttribute("aria-hidden", "true");
+}
+
+function openPromoModal() {
+  promoModal.classList.remove("hidden");
+  promoModal.setAttribute("aria-hidden", "false");
+}
+function closePromoModal() {
+  promoModal.classList.add("hidden");
+  promoModal.setAttribute("aria-hidden", "true");
+  pendingPromotionMove = null;
+}
+
+function showDrawBar(text) {
+  drawBarText.textContent = text;
+  drawBar.classList.remove("hidden");
+}
+function hideDrawBar() {
+  drawBar.classList.add("hidden");
 }
 
 function fileRankToSquare(fileIdx, rankIdx) {
@@ -146,6 +180,7 @@ function renderEmptyBoard() {
   selected = null;
   lastBad = null;
   clearHighlights();
+  hideDrawBar();
 
   boardEl.classList.remove("flipped");
   boardEl.innerHTML = "";
@@ -154,14 +189,18 @@ function renderEmptyBoard() {
     for (let f = 0; f < 8; f++) {
       const sq = fileRankToSquare(f, r);
       const isLight = ((r + f) % 2 === 0);
-
       const cell = document.createElement("div");
       cell.className = `square ${isLight ? "light" : "dark"}`;
       cell.dataset.square = sq;
-
       boardEl.appendChild(cell);
     }
   }
+}
+
+function updateDrawButtons(state) {
+  const playing = !!state && !!myColor && !state.gameOver && state.players?.w && state.players?.b;
+  offerDrawBtn.disabled = !playing;
+  claimDrawBtn.disabled = !(playing && state.claimDraw?.available);
 }
 
 function renderBoard(state) {
@@ -176,8 +215,11 @@ function renderBoard(state) {
   matchText.textContent = (!state.players.w || !state.players.b) ? "Buscando rival…" : "Partida en curso";
   roleText.textContent = myColor ? `Rol: ${myColor === "w" ? "Blancas" : "Negras"}` : "Rol: -";
 
+  updateDrawButtons(state);
+
   if (state.gameOver) {
     msg.textContent = `Partida finalizada: ${state.outcome || "Fin"}`;
+    hideDrawBar();
   } else {
     const yourTurn = myColor && state.turn === myColor;
     msg.textContent = yourTurn
@@ -206,9 +248,48 @@ function renderBoard(state) {
 
   if (selected) highlightSquare(selected, "sel");
   if (lastBad) highlightSquare(lastBad, "bad");
+
+  // si hay oferta de tablas y NO es de mí, muestro bar
+  if (!state.gameOver && state.drawOffer?.byName) {
+    const isMine = (myColor && state.drawOffer.by === myColor) || false;
+    if (!isMine) showDrawBar(`${state.drawOffer.byName} ofreció tablas.`);
+    else hideDrawBar();
+  } else {
+    hideDrawBar();
+  }
 }
 
+function isPromotionNeeded(from, to) {
+  const piece = getPieceAtSquare(from);
+  if (!piece) return false;
+  if (piece.type !== "p") return false;
+
+  // rank final
+  const toRank = to[1];
+  return (piece.color === "w" && toRank === "8") || (piece.color === "b" && toRank === "1");
+}
+
+function sendMove(from, to, promotion = "q") {
+  socket.emit("move", { from, to, promotion }, (res) => {
+    if (!res?.ok) {
+      lastBad = to;
+      highlightSquare(from, "sel");
+      highlightSquare(to, "bad");
+      msg.textContent = res?.error || "Movimiento inválido";
+      return;
+    }
+    selected = null;
+  });
+}
+
+/* =========================================
+   CLICK EN TABLERO
+   ✅ NO existe regla falsa de “pieza protegida”
+   ✅ Solo el servidor (chess.js) decide legalidad
+   ========================================= */
 function onSquareClick(sq) {
+  if (!currentState || currentState.gameOver) return;
+
   lastBad = null;
   clearHighlights();
 
@@ -227,6 +308,7 @@ function onSquareClick(sq) {
     return;
   }
 
+  // si clickeas otra pieza tuya, cambias selección
   if (canSelectPiece(piece)) {
     selected = sq;
     highlightSquare(selected, "sel");
@@ -236,16 +318,15 @@ function onSquareClick(sq) {
   const from = selected;
   const to = sq;
 
-  socket.emit("move", { from, to, promotion: "q" }, (res) => {
-    if (!res?.ok) {
-      lastBad = to;
-      highlightSquare(from, "sel");
-      highlightSquare(to, "bad");
-      msg.textContent = res?.error || "Movimiento inválido";
-      return;
-    }
-    selected = null;
-  });
+  // promoción completa
+  if (isPromotionNeeded(from, to)) {
+    pendingPromotionMove = { from, to };
+    openPromoModal();
+    highlightSquare(from, "sel");
+    return;
+  }
+
+  sendMove(from, to, "q");
 }
 
 function escapeHtml(s) {
@@ -276,7 +357,7 @@ chatText.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendChat();
 });
 
-/* ====== BOTONES ====== */
+/* ===== BOTONES ===== */
 joinBtn.addEventListener("click", () => {
   if (!socket.connected) {
     msg.textContent = "No hay conexión. Intenta de nuevo…";
@@ -286,12 +367,34 @@ joinBtn.addEventListener("click", () => {
 });
 
 resetBtn.addEventListener("click", () => {
-  // reinicio simple como 3 en línea (vuelve al estado inicial)
   sessionStorage.removeItem("ajedrez_name");
   location.reload();
 });
 
-/* ====== MODAL ====== */
+// tablas
+offerDrawBtn.addEventListener("click", () => {
+  if (!currentState || currentState.gameOver) return;
+  socket.emit("offerDraw", {}, (res) => {
+    if (!res?.ok) msg.textContent = res?.error || "No se pudo ofrecer tablas.";
+  });
+});
+
+claimDrawBtn.addEventListener("click", () => {
+  socket.emit("claimDraw", {}, (res) => {
+    if (!res?.ok) msg.textContent = res?.error || "No se pudo reclamar tablas.";
+  });
+});
+
+drawAcceptBtn.addEventListener("click", () => {
+  socket.emit("respondDraw", { accept: true }, () => {});
+  hideDrawBar();
+});
+drawDeclineBtn.addEventListener("click", () => {
+  socket.emit("respondDraw", { accept: false }, () => {});
+  hideDrawBar();
+});
+
+/* ===== MODAL NOMBRE ===== */
 nameCancel.addEventListener("click", closeNameModal);
 nameOk.addEventListener("click", () => {
   const name = sanitizeName(nameInput.value);
@@ -307,10 +410,26 @@ nameOk.addEventListener("click", () => {
 
   socket.emit("findMatch", { name: myName });
 });
-
 nameInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") nameOk.click();
   if (e.key === "Escape") closeNameModal();
+});
+
+/* ===== MODAL PROMOCIÓN ===== */
+promoCancel.addEventListener("click", () => {
+  closePromoModal();
+  // no deselecciono, para que el usuario pueda elegir otro destino
+  if (selected) highlightSquare(selected, "sel");
+});
+
+promoBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (!pendingPromotionMove) return;
+    const p = btn.dataset.p; // q r b n
+    const { from, to } = pendingPromotionMove;
+    closePromoModal();
+    sendMove(from, to, p);
+  });
 });
 
 socket.on("chat", ({ name, text }) => addChatLine(name, text));
@@ -328,10 +447,21 @@ socket.on("matchFound", ({ color, state }) => {
 
 socket.on("state", (state) => state && renderBoard(state));
 
+socket.on("drawOffered", ({ byName }) => {
+  if (!currentState || currentState.gameOver) return;
+  showDrawBar(`${byName} ofreció tablas.`);
+});
+
+socket.on("drawDeclined", ({ byName }) => {
+  msg.textContent = `${byName} rechazó tablas.`;
+});
+
 socket.on("opponentLeft", () => {
   myColor = null;
   selected = null;
   lastBad = null;
+  pendingPromotionMove = null;
+  closePromoModal();
 
   whiteName.textContent = "-";
   blackName.textContent = "-";
@@ -352,8 +482,6 @@ socket.on("opponentLeft", () => {
 
 socket.on("connect", () => {
   setConn(true);
-
-  // ✅ NO auto-entrar, como pediste
   myName = sessionStorage.getItem("ajedrez_name") || "";
   renderEmptyBoard();
   setJoinUI("idle");

@@ -25,6 +25,16 @@
         <div class="actions">
           <button id="joinBtn" class="btn primary">Entrar a jugar</button>
           <button id="resetBtn" class="btn secondary">Reiniciar</button>
+          <button id="offerDrawBtn" class="btn ghost" disabled>Ofrecer tablas</button>
+          <button id="claimDrawBtn" class="btn ghost" disabled>Reclamar tablas</button>
+        </div>
+
+        <div id="drawBar" class="drawbar hidden">
+          <div class="drawbarText" id="drawBarText">El rival ofrece tablas.</div>
+          <div class="drawbarActions">
+            <button id="drawAcceptBtn" class="btn primary">Aceptar</button>
+            <button id="drawDeclineBtn" class="btn secondary">Rechazar</button>
+          </div>
         </div>
 
         <div class="row">
@@ -61,6 +71,25 @@
       <div class="modalActions">
         <button id="nameCancel" class="btn ghost">Cancelar</button>
         <button id="nameOk" class="btn primary">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Promoción -->
+  <div id="promoModal" class="modal hidden" aria-hidden="true">
+    <div class="modalCard" role="dialog" aria-modal="true">
+      <div class="modalTitle">Promoción</div>
+      <div class="modalText">Elige la pieza a la que quieres promover.</div>
+
+      <div class="promoGrid">
+        <button class="promoBtn" data-p="q">♕</button>
+        <button class="promoBtn" data-p="r">♖</button>
+        <button class="promoBtn" data-p="b">♗</button>
+        <button class="promoBtn" data-p="n">♘</button>
+      </div>
+
+      <div class="modalActions">
+        <button id="promoCancel" class="btn ghost">Cancelar</button>
       </div>
     </div>
   </div>
