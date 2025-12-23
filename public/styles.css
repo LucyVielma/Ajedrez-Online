@@ -139,15 +139,13 @@ body {
 
 .square.light {
   background:
-    radial-gradient(120% 120% at 30% 25%, rgba(80, 180, 255, 0.16), transparent 55%),
-    linear-gradient(135deg, rgba(255,255,255,0.14), rgba(0,0,0,0.06)),
+
     #e8edf7;
 }
 .square.dark {
   background:
-    radial-gradient(120% 120% at 70% 75%, rgba(80, 180, 255, 0.14), transparent 55%),
-    linear-gradient(135deg, rgba(255,255,255,0.06), rgba(0,0,0,0.35)),
-    #141824;
+
+    #222c4d;
 }
 
 /* ===== PIEZAS ===== */
@@ -155,7 +153,76 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 78%;
+  height: 78%;
   transform: translateZ(0);
+  pointer-events: none; /* clics siempre en la casilla, no en el SVG */
+  /* Suaviza cambios de brillo (selección) */
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.piece .svgPiece{
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+/*
+  ⚠️ IMPORTANTE:
+  En el proyecto original las piezas eran caracteres (♟♞♜...) y el “efecto”
+  venía principalmente de text-shadow.
+
+  Los SVG NO soportan text-shadow, por eso aquí creamos un contorno (stroke)
+  + un pequeño glow para que se vean igual de “vivas”, sobre todo las negras
+  en casillas oscuras.
+*/
+
+/* reglas generales para contorno en SVG */
+.piece .svgPiece path,
+.piece .svgPiece circle,
+.piece .svgPiece rect,
+.piece .svgPiece polygon,
+.piece .svgPiece polyline,
+.piece .svgPiece ellipse {
+  fill: currentColor !important;  /* ✅ ESTO ARREGLA EL COLOR */
+  paint-order: stroke fill;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* contorno base (equivalente al text-shadow del proyecto original) */
+.piece.pw .svgPiece path,
+.piece.pw .svgPiece circle,
+.piece.pw .svgPiece rect,
+.piece.pw .svgPiece polygon,
+.piece.pw .svgPiece polyline,
+.piece.pw .svgPiece ellipse {
+  stroke: rgba(0,0,0,0.75);
+  stroke-width: 2.2;
+}
+.piece.pb .svgPiece path,
+.piece.pb .svgPiece circle,
+.piece.pb .svgPiece rect,
+.piece.pb .svgPiece polygon,
+.piece.pb .svgPiece polyline,
+.piece.pb .svgPiece ellipse {
+  /* borde claro para que la pieza negra no “se pierda” en casillas oscuras */
+  stroke: rgba(255,255,255,0.55);
+  stroke-width: 2.0;
+}
+
+/* selección: borde azul + ligera escala */
+.square.sel .piece { transform: translateZ(0) scale(1.05); }
+
+.square.sel .piece .svgPiece path,
+.square.sel .piece .svgPiece circle,
+.square.sel .piece .svgPiece rect,
+.square.sel .piece .svgPiece polygon,
+.square.sel .piece .svgPiece polyline,
+.square.sel .piece .svgPiece ellipse {
+  stroke: rgba(80,180,255,0.90);
+  stroke-width: 4.6;
 }
 
 /* Base SIEMPRE (lo que pediste) */
@@ -340,6 +407,8 @@ body {
   color: #e9ecff;
   cursor: pointer;
 }
+.promoBtn .svgPiece{ width: 40px; height: 40px; margin: 0 auto; }
+
 .promoBtn:hover{
   background: rgba(80,180,255,0.14);
   border-color: rgba(80,180,255,0.25);
@@ -351,7 +420,23 @@ body {
     grid-template-columns: 1fr;
     height: auto;
   }
-  .board{
-    width: min(92vmin, 92vw);
-  }
+  .board{ margin-top: 8px; }
+
+}
+
+
+/* Panel se queda a la izquierda (ocupa todo el ancho de la columna) */
+.panel{
+  align-self: stretch;
+}
+
+/* ✅ Tablero centrado en la columna izquierda */
+.board{
+  align-self: center;     /* o también sirve: margin: 0 auto; */
+}
+
+/* (Opcional) que el texto de ayuda quede alineado con el tablero */
+.hint{
+  width: min(92vmin, 720px);
+  align-self: center;     /* o: margin: 0 auto; */
 }

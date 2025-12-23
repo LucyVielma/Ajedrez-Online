@@ -49,10 +49,81 @@ let lastBad = null;
 // para promoción
 let pendingPromotionMove = null; // {from,to}
 
-const PIECES = {
-  w: { k:"♔", q:"♕", r:"♖", b:"♗", n:"♘", p:"♙" },
-  b: { k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟" }
-};
+const SVG_CACHE = new Map();
+const SVG_PROMISES = new Map();
+
+/**
+ * Carga SVG desde /public/pieces/
+ * - Prioriza archivos específicos por color: wk.svg, bq.svg, etc.
+ * - Fallback a genéricos por tipo: k.svg, q.svg, r.svg, b.svg, n.svg, p.svg
+ *
+ * Para cambiar los iconos: reemplaza esos archivos en /public/pieces/
+ * (idealmente usando fill="currentColor" dentro del SVG).
+ */
+function fetchSvgFile(name) {
+  if (SVG_CACHE.has(name)) return Promise.resolve(SVG_CACHE.get(name));
+  if (SVG_PROMISES.has(name)) return SVG_PROMISES.get(name);
+
+  const p = fetch(`/pieces/${name}.svg`, { cache: "no-store" })
+    .then(r => (r.ok ? r.text() : null))
+    .then(txt => {
+      if (txt) SVG_CACHE.set(name, txt);
+      return txt;
+    })
+    .catch(() => null);
+
+  SVG_PROMISES.set(name, p);
+  return p;
+}
+
+function getSvgForPiece(piece) {
+  const specific = `${piece.color}${piece.type}`; // wk, bp...
+  const generic = `${piece.type}`; // k,q,r,b,n,p
+  return SVG_CACHE.get(specific) || SVG_CACHE.get(generic) || null;
+}
+
+async function ensureSvgForPiece(piece) {
+  const specific = `${piece.color}${piece.type}`;
+  const generic = `${piece.type}`;
+
+  let svg = SVG_CACHE.get(specific) || SVG_CACHE.get(generic);
+  if (svg) return svg;
+
+  svg = await fetchSvgFile(specific);
+  if (!svg) svg = await fetchSvgFile(generic);
+  return svg;
+}
+
+function updatePromoIcons() {
+  // pinta iconos de promoción según mi color (si aún no tengo, usa blancas)
+  const c = myColor || "w";
+  promoBtns.forEach(btn => {
+    const t = btn.dataset.p; // q r b n
+    const svg = getSvgForPiece({ color: c, type: t });
+    if (svg) {
+      btn.innerHTML = svg;
+      // Por si el SVG no trae class="svgPiece"
+      const el = btn.querySelector("svg");
+      if (el) el.classList.add("svgPiece");
+    }
+  });
+}
+
+// Precarga los SVG base (y si existen los específicos por color)
+(function preloadSvgs() {
+  const types = ["k", "q", "r", "b", "n", "p"];
+  const jobs = [];
+  for (const t of types) {
+    jobs.push(fetchSvgFile(t));
+    jobs.push(fetchSvgFile(`w${t}`));
+    jobs.push(fetchSvgFile(`b${t}`));
+  }
+  Promise.all(jobs).then(() => {
+    updatePromoIcons();
+    if (currentState) renderBoard(currentState);
+  });
+})();
+
 
 function setConn(online) {
   dot.classList.toggle("on", online);
@@ -171,9 +242,28 @@ function canSelectPiece(piece) {
 function makePieceEl(piece) {
   const span = document.createElement("span");
   span.className = `piece ${piece.color === "w" ? "pw" : "pb"}`;
-  span.textContent = PIECES[piece.color][piece.type];
+
+  const svg = getSvgForPiece(piece);
+  if (svg) {
+    span.innerHTML = svg;
+    // Por si el SVG no trae class="svgPiece"
+    const el = span.querySelector("svg");
+    if (el) el.classList.add("svgPiece");
+  } else {
+    // fallback temporal (por si el SVG aún no cargó o no existe)
+    span.textContent = "";
+    ensureSvgForPiece(piece).then(s => {
+      if (s) {
+        span.innerHTML = s;
+        const el = span.querySelector("svg");
+        if (el) el.classList.add("svgPiece");
+      }
+    });
+  }
+
   return span;
 }
+
 
 function renderEmptyBoard() {
   currentState = null;
@@ -441,6 +531,7 @@ socket.on("waiting", () => {
 
 socket.on("matchFound", ({ color, state }) => {
   myColor = color;
+  updatePromoIcons();
   setJoinUI("playing");
   renderBoard(state);
 });
@@ -458,6 +549,7 @@ socket.on("drawDeclined", ({ byName }) => {
 
 socket.on("opponentLeft", () => {
   myColor = null;
+  updatePromoIcons();
   selected = null;
   lastBad = null;
   pendingPromotionMove = null;
