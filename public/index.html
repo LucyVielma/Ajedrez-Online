@@ -25,8 +25,20 @@
         <div class="actions">
           <button id="joinBtn" class="btn primary">Entrar a jugar</button>
           <button id="resetBtn" class="btn secondary">Reiniciar</button>
+
+          <input id="wagerAmount" class="numInput" type="number" min="20" max="50" step="1" placeholder="Apuesta 🪙" />
+          <button id="offerWagerBtn" class="btn ghost" disabled>Proponer apuesta</button>
+
           <button id="offerDrawBtn" class="btn ghost" disabled>Ofrecer tablas</button>
           <button id="claimDrawBtn" class="btn ghost" disabled>Reclamar tablas</button>
+        </div>
+
+        <div id="wagerBar" class="wagerbar hidden">
+          <div class="wagerbarText" id="wagerBarText">El rival propone una apuesta.</div>
+          <div class="wagerbarActions">
+            <button id="wagerAcceptBtn" class="btn primary">Aceptar</button>
+            <button id="wagerDeclineBtn" class="btn secondary">Rechazar</button>
+          </div>
         </div>
 
         <div id="drawBar" class="drawbar hidden">
@@ -41,6 +53,10 @@
           <div class="label">Blancas:</div><div class="value" id="whiteName">-</div>
           <div class="label">Negras:</div><div class="value" id="blackName">-</div>
           <div class="label">Turno:</div><div class="value" id="turnName">-</div>
+
+          <div class="label">Wallet Blancas:</div><div class="value" id="whiteWallet">-</div>
+          <div class="label">Wallet Negras:</div><div class="value" id="blackWallet">-</div>
+          <div class="label">Apuesta:</div><div class="value" id="wagerStatus">-</div>
         </div>
 
         <div class="msg" id="msg">Presiona “Entrar a jugar” para comenzar.</div>

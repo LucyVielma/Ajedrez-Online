@@ -71,6 +71,33 @@ body {
   border: 1px solid rgba(255,255,255,0.12);
 }
 
+.numInput{
+  width: 120px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.22);
+  color: #e9ecff;
+  font-weight: 800;
+  outline: none;
+}
+.numInput:disabled{ opacity: .6; cursor:not-allowed; }
+
+.wagerbar{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 200, 80, 0.12);
+  border: 1px solid rgba(255, 200, 80, 0.22);
+  margin-bottom: 10px;
+}
+.wagerbar.hidden{ display:none; }
+.wagerbarText{ font-weight: 800; opacity: .95; }
+.wagerbarActions{ display:flex; gap:10px; }
+
 .drawbar{
   display:flex;
   align-items:center;

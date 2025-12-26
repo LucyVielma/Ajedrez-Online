@@ -19,6 +19,21 @@ const sendBtn = document.getElementById("sendBtn");
 const joinBtn = document.getElementById("joinBtn");
 const resetBtn = document.getElementById("resetBtn");
 
+// Wallet / Apuestas
+const wagerAmount = document.getElementById("wagerAmount");
+const offerWagerBtn = document.getElementById("offerWagerBtn");
+
+const wagerBar = document.getElementById("wagerBar");
+const wagerBarText = document.getElementById("wagerBarText");
+const wagerAcceptBtn = document.getElementById("wagerAcceptBtn");
+const wagerDeclineBtn = document.getElementById("wagerDeclineBtn");
+
+const whiteWallet = document.getElementById("whiteWallet");
+const blackWallet = document.getElementById("blackWallet");
+const wagerStatus = document.getElementById("wagerStatus");
+
+if (wagerAmount) wagerAmount.value = 20;
+
 // Tablas
 const offerDrawBtn = document.getElementById("offerDrawBtn");
 const claimDrawBtn = document.getElementById("claimDrawBtn");
@@ -141,7 +156,11 @@ function setJoinUI(state) {
     msg.textContent = "Presiona “Entrar a jugar” para comenzar.";
     offerDrawBtn.disabled = true;
     claimDrawBtn.disabled = true;
+    offerWagerBtn.disabled = true;
+    wagerAmount.disabled = true;
     hideDrawBar();
+    hideWagerBar();
+    hideWagerBar();
   }
   if (state === "searching") {
     joinBtn.disabled = true;
@@ -151,11 +170,17 @@ function setJoinUI(state) {
     msg.textContent = "Buscando rival…";
     offerDrawBtn.disabled = true;
     claimDrawBtn.disabled = true;
+    offerWagerBtn.disabled = true;
+    wagerAmount.disabled = true;
     hideDrawBar();
+    hideWagerBar();
   }
   if (state === "playing") {
     joinBtn.disabled = true;
     joinBtn.textContent = "En partida";
+    // se habilita/ajusta al recibir el estado del servidor
+    offerWagerBtn.disabled = true;
+    wagerAmount.disabled = true;
   }
 }
 
@@ -202,6 +227,14 @@ function showDrawBar(text) {
 }
 function hideDrawBar() {
   drawBar.classList.add("hidden");
+}
+
+function showWagerBar(text) {
+  wagerBarText.textContent = text;
+  wagerBar.classList.remove("hidden");
+}
+function hideWagerBar() {
+  wagerBar.classList.add("hidden");
 }
 
 function fileRankToSquare(fileIdx, rankIdx) {
@@ -271,6 +304,11 @@ function renderEmptyBoard() {
   lastBad = null;
   clearHighlights();
   hideDrawBar();
+  hideWagerBar();
+
+  if (whiteWallet) whiteWallet.textContent = "-";
+  if (blackWallet) blackWallet.textContent = "-";
+  if (wagerStatus) wagerStatus.textContent = "-";
 
   boardEl.classList.remove("flipped");
   boardEl.innerHTML = "";
@@ -293,6 +331,41 @@ function updateDrawButtons(state) {
   claimDrawBtn.disabled = !(playing && state.claimDraw?.available);
 }
 
+function updateWagerControls(state) {
+  const playing = !!state && !!myColor && !state.gameOver && state.players?.w && state.players?.b;
+
+  if (!offerWagerBtn || !wagerAmount) return;
+
+  offerWagerBtn.textContent = "Proponer apuesta";
+
+  if (!playing) {
+    offerWagerBtn.disabled = true;
+    wagerAmount.disabled = true;
+    return;
+  }
+
+  const offer = state.wager?.offer || null;
+  const active = state.wager?.active || null;
+
+  if (active) {
+    offerWagerBtn.disabled = true;
+    wagerAmount.disabled = true;
+    offerWagerBtn.textContent = "Apuesta activa";
+    return;
+  }
+
+  if (offer) {
+    offerWagerBtn.disabled = true;
+    wagerAmount.disabled = true;
+    const mine = myColor && offer.by === myColor;
+    offerWagerBtn.textContent = mine ? "Oferta enviada" : "Apuesta pendiente";
+    return;
+  }
+
+  offerWagerBtn.disabled = false;
+  wagerAmount.disabled = false;
+}
+
 function renderBoard(state) {
   currentState = state;
 
@@ -300,12 +373,29 @@ function renderBoard(state) {
   blackName.textContent = state.players.b?.name || "-";
   turnName.textContent = state.turn === "w" ? "Blancas" : "Negras";
 
+  // wallets
+  if (whiteWallet) whiteWallet.textContent = (state.players.w?.wallet ?? "-") !== "-" ? `${state.players.w.wallet} 🪙` : "-";
+  if (blackWallet) blackWallet.textContent = (state.players.b?.wallet ?? "-") !== "-" ? `${state.players.b.wallet} 🪙` : "-";
+
+  // estado de apuesta
+  if (wagerStatus) {
+    if (state.wager?.active) {
+      const pct = Math.round((state.wager.active.feePct || 0.05) * 100);
+      wagerStatus.textContent = `${state.wager.active.amount} c/u • Bote ${state.wager.active.pot} • Fee ${pct}%`;
+    } else if (state.wager?.offer) {
+      wagerStatus.textContent = `Oferta ${state.wager.offer.amount} c/u (pendiente)`;
+    } else {
+      wagerStatus.textContent = "-";
+    }
+  }
+
   boardEl.classList.toggle("flipped", myColor === "b");
 
   matchText.textContent = (!state.players.w || !state.players.b) ? "Buscando rival…" : "Partida en curso";
   roleText.textContent = myColor ? `Rol: ${myColor === "w" ? "Blancas" : "Negras"}` : "Rol: -";
 
   updateDrawButtons(state);
+  updateWagerControls(state);
 
   if (state.gameOver) {
     msg.textContent = `Partida finalizada: ${state.outcome || "Fin"}`;
@@ -338,6 +428,15 @@ function renderBoard(state) {
 
   if (selected) highlightSquare(selected, "sel");
   if (lastBad) highlightSquare(lastBad, "bad");
+
+  // si hay oferta de apuesta y NO es de mí, muestro bar
+  if (!state.gameOver && state.wager?.offer?.byName) {
+    const isMine = (myColor && state.wager.offer.by === myColor) || false;
+    if (!isMine) showWagerBar(`${state.wager.offer.byName} propone apostar ${state.wager.offer.amount} 🪙 por jugador.`);
+    else hideWagerBar();
+  } else {
+    hideWagerBar();
+  }
 
   // si hay oferta de tablas y NO es de mí, muestro bar
   if (!state.gameOver && state.drawOffer?.byName) {
@@ -461,6 +560,35 @@ resetBtn.addEventListener("click", () => {
   location.reload();
 });
 
+// apuestas
+offerWagerBtn.addEventListener("click", () => {
+  if (!currentState || currentState.gameOver) return;
+
+  const amt = parseInt(wagerAmount.value || "", 10);
+  if (!Number.isFinite(amt) || amt <= 0) {
+    msg.textContent = "Monto inválido para la apuesta.";
+    return;
+  }
+
+  socket.emit("offerWager", { amount: amt }, (res) => {
+    if (!res?.ok) msg.textContent = res?.error || "No se pudo proponer la apuesta.";
+    else msg.textContent = `Oferta enviada por ${amt} 🪙.`;
+  });
+});
+
+wagerAcceptBtn.addEventListener("click", () => {
+  socket.emit("respondWager", { accept: true }, (res) => {
+    if (!res?.ok) msg.textContent = res?.error || "No se pudo aceptar la apuesta.";
+  });
+  hideWagerBar();
+});
+wagerDeclineBtn.addEventListener("click", () => {
+  socket.emit("respondWager", { accept: false }, (res) => {
+    if (!res?.ok) msg.textContent = res?.error || "No se pudo rechazar la apuesta.";
+  });
+  hideWagerBar();
+});
+
 // tablas
 offerDrawBtn.addEventListener("click", () => {
   if (!currentState || currentState.gameOver) return;
@@ -537,6 +665,15 @@ socket.on("matchFound", ({ color, state }) => {
 });
 
 socket.on("state", (state) => state && renderBoard(state));
+
+socket.on("wagerOffered", ({ byName, amount }) => {
+  if (!currentState || currentState.gameOver) return;
+  showWagerBar(`${byName} propone apostar ${amount} 🪙 por jugador.`);
+});
+
+socket.on("wagerDeclined", ({ byName }) => {
+  msg.textContent = `${byName} rechazó la apuesta.`;
+});
 
 socket.on("drawOffered", ({ byName }) => {
   if (!currentState || currentState.gameOver) return;
